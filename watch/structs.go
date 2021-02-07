@@ -1,7 +1,29 @@
 package watch
 
+import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"strings"
+	"time"
+)
+
 func Init(){
 	CombinedCachedComplete = make(map[string]CombinedEndpoint)
+	go updateCache()
+}
+
+// updateCache updates the combined cache every ten minutes for all active leagues.
+func updateCache(){
+	activeLeagues := getCurrentLeagues()
+	for{
+		for _, league := range activeLeagues {
+			getCombined(league.Name)
+		}
+	time.Sleep(10 * time.Minute)
+	}
 }
 
 // CombinedCachedComplete is the cache as map for the complete /combined endpoint.
@@ -61,4 +83,59 @@ type DefaultItemData struct {
 	Reward      string  `json:"reward,omitempty"`
 	RewardPrice float64 `json:"reward_price,omitempty"`
 	RewardID    int     `json:"reward_id,omitempty"`
+}
+
+type leagues []struct {
+	Name      string    `json:"name"`
+	StartDate time.Time `json:"start_date"`
+	EndDate   time.Time `json:"end_date"`
+}
+
+// getCombined is getting the current combined json from the combined endpoint.
+func getCombined(league string){
+	url := "https://api.poe.watch" + "/combined?league=" + league
+	url = strings.ReplaceAll(url, " ", "%20")
+
+	res, err := http.Get(url)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	var data CombinedEndpoint
+	err = json.Unmarshal(body, &data)
+	if len(data.Items) > 0 {
+		CombinedCachedComplete[league] = data
+	}
+}
+
+// getCurrentLeagues is getting the current active leagues from the poe.watch api.
+func getCurrentLeagues() leagues{
+	url := "https://api.poe.watch/leagues"
+
+	res, err := http.Get(url)
+	if err != nil {
+		fmt.Println(err)
+		return leagues{}
+	}
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println(err)
+		return leagues{}
+	}
+
+	var data leagues
+	err = json.Unmarshal(body, &data)
+	if err != nil{
+		log.Println(err)
+	}
+
+	return data
 }

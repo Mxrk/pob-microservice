@@ -6,12 +6,15 @@ import (
 	"log"
 	"net/http"
 	"pob_api/pob"
+	"pob_api/watch"
 )
 
 func main(){
+	watch.Init()
+
 	http.HandleFunc("/", handlePob)
 
-	err := http.ListenAndServe(":" + "8080", nil)
+	err := http.ListenAndServe(":" + "3000", nil)
 	if err != nil {
 		panic(err)
 	}
